@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Unicode Line Generator</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+Symbols+2&display=swap");
+
+      body {
+        font-family: "Noto Sans Symbols 2", sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f0f0f0;
+        color: #000;
+        transition: background-color 0.3s, color 0.3s;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+      }
+
+      .output-container {
+        flex: 1;
+        overflow: auto; /* Allows the output to be scrollable */
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .output {
+        text-align: center;
+        padding: 20px;
+        box-sizing: border-box;
+        cursor: pointer;
+        transition: font-size 0.3s;
+        line-height: 0; /* Set line-height to zero to remove gaps between rows */
+        font-smooth: never;
+        -webkit-font-smoothing: none;
+        text-rendering: optimizeLegibility;
+      }
+
+      .controls {
+        width: 100%;
+        background-color: #333;
+        color: #fff;
+        padding: 10px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+        position: sticky;
+        bottom: 0;
+        z-index: 1000;
+      }
+
+      .input-group {
+        display: flex;
+        align-items: center;
+      }
+
+      .input-group label {
+        margin-right: 10px;
+      }
+
+      button,
+      input[type="range"],
+      input[type="number"] {
+        padding: 10px;
+        font-size: 16px;
+      }
+
+      input[type="number"] {
+        max-width: 4rem;
+        min-width: 2rem;
+      }
+
+      .slider-label {
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+      }
+
+      .char {
+        display: inline-block;
+        transition: margin 0.3s, line-height 0.3s;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="output-container">
+      <div class="output" id="output"></div>
+    </div>
+
+    <div class="controls">
+      <div class="input-group">
+        <label for="rows">Rows:</label>
+        <input type="number" id="rows" value="2" min="1" />
+      </div>
+      <div class="input-group">
+        <label for="columns">Columns:</label>
+        <input type="number" id="columns" value="2" min="1" />
+      </div>
+      <div class="input-group">
+        <input type="checkbox" id="bits" checked onchange="ensureOneCheckboxSelected()" />
+        <label for="bits">Bits</label>
+      </div>
+      <div class="input-group">
+        <input type="checkbox" id="angles" checked onchange="ensureOneCheckboxSelected()" />
+        <label for="angles">Angles</label>
+      </div>
+      <div class="input-group">
+        <input type="checkbox" id="inverseColors" />
+        <label for="inverseColors">Inverse Colors</label>
+      </div>
+      <div class="input-group">
+        <div class="slider-label">
+          <span>Spacing</span>
+        </div>
+        <input type="range" id="gapPreference" min="0" max="100" value="0" />
+      </div>
+      <div class="input-group">
+        <label for="scale">Scale:</label>
+        <input type="range" id="scale" min="50" max="300" value="120" />
+      </div>
+      <button onclick="generateCharacters()">Generate</button>
+      <button onclick="changeCharacterColor()">Change Character Color</button>
+      <button onclick="surpriseMe()">Surprise Me</button>
+    </div>
+
+    <script>
+      const bitsSet = [
+        "🬀",
+        "🬁",
+        "🬂",
+        "🬃",
+        "🬄",
+        "🬅",
+        "🬆",
+        "🬇",
+        "🬈",
+        "🬉",
+        "🬊",
+        "🬋",
+        "🬌",
+        "🬍",
+        "🬎",
+        "🬏",
+        "🬐",
+        "🬑",
+        "🬒",
+        "🬓",
+        "🬔",
+        "🬕",
+        "🬖",
+        "🬗",
+        "🬘",
+        "🬙",
+        "🬚",
+        "🬛",
+        "🬜",
+        "🬝",
+        "🬞",
+        "🬟",
+        "🬠",
+        "🬡",
+        "🬢",
+        "🬣",
+        "🬤",
+        "🬥",
+        "🬦",
+        "🬧",
+        "🬨",
+        "🬩",
+        "🬪",
+        "🬫",
+        "🬬",
+        "🬭",
+        "🬮",
+        "🬯",
+        "🬰",
+        "🬱",
+        "🬲",
+        "🬳",
+        "🬴",
+        "🬵",
+        "🬶",
+        "🬷",
+        "🬸",
+        "🬹",
+        "🬺",
+        "🬻",
+      ];
+
+      const anglesSet = [
+        "🭠",
+        "🭡",
+        "🭢",
+        "🭣",
+        "🭤",
+        "🭥",
+        "🭦",
+        "🭧",
+        "🭨",
+        "🭩",
+        "🭪",
+        "🭫",
+        "🭬",
+        "🭭",
+        "🭮",
+        "🭯",
+        "🬼",
+        "🬽",
+        "🬾",
+        "🬿",
+        "🭀",
+        "🭁",
+        "🭂",
+        "🭃",
+        "🭄",
+        "🭅",
+        "🭆",
+        "🭇",
+        "🭈",
+        "🭉",
+        "🭊",
+        "🭋",
+        "🭌",
+        "🭍",
+        "🭎",
+        "🭏",
+        "🭐",
+        "🭑",
+        "🭒",
+        "🭓",
+        "🭔",
+        "🭕",
+        "🭡",
+        "🭗",
+        "🭘",
+        "🭙",
+        "🭚",
+        "🭛",
+        "🭜",
+        "🭝",
+        "🭞",
+        "🭟",
+      ];
+
+      function ensureOneCheckboxSelected() {
+        const bitsChecked = document.getElementById("bits").checked;
+        const anglesChecked = document.getElementById("angles").checked;
+
+        if (!bitsChecked && !anglesChecked) {
+          // If both are unchecked, re-check the one that was just toggled off
+          event.target.checked = true;
+        }
+      }
+
+      function generateCharacters() {
+        const rows = document.getElementById("rows").value;
+        const columns = document.getElementById("columns").value;
+        const useBits = document.getElementById("bits").checked;
+        const useAngles = document.getElementById("angles").checked;
+        const gapPreference = document.getElementById("gapPreference").value;
+        const inverseColors = document.getElementById("inverseColors").checked;
+
+        // Combine character sets based on checkbox selections
+        let characterSet = [];
+        if (useBits) characterSet = characterSet.concat(bitsSet);
+        if (useAngles) characterSet = characterSet.concat(anglesSet);
+
+        const existingChars = document.querySelectorAll(".char");
+        let result = "";
+
+        for (let i = 0; i < rows; i++) {
+          let row = "";
+          for (let j = 0; j < columns; j++) {
+            const color = existingChars[i * columns + j] ? existingChars[i * columns + j].style.color : "inherit";
+            // Randomly add a space based on the gap preference
+            if (Math.random() * 100 < gapPreference) {
+              row += `<span class="char" style="color:${color};" data-row="${i}" data-col="${j}"> </span>`;
+            } else {
+              const char = characterSet[Math.floor(Math.random() * characterSet.length)];
+              row += `<span class="char" style="color:${color};" data-row="${i}" data-col="${j}">${char}</span>`;
+            }
+          }
+          result += `<div>${row}</div>`; // Wrap each row in a div
+        }
+
+        document.getElementById("output").innerHTML = result;
+        addCharacterClickEvent();
+        updateColors(inverseColors);
+        updateSpacing(gapPreference);
+        updateScale();
+      }
+
+      function addCharacterClickEvent() {
+        document.querySelectorAll(".char").forEach((charElement) => {
+          charElement.addEventListener("click", function () {
+            rerollSingleCharacter(this);
+          });
+        });
+      }
+
+      function rerollSingleCharacter(charElement) {
+        const useBits = document.getElementById("bits").checked;
+        const useAngles = document.getElementById("angles").checked;
+
+        // Combine character sets based on checkbox selections
+        let characterSet = [];
+        if (useBits) characterSet = characterSet.concat(bitsSet);
+        if (useAngles) characterSet = characterSet.concat(anglesSet);
+
+        const newChar = characterSet[Math.floor(Math.random() * characterSet.length)];
+        charElement.innerText = newChar;
+      }
+
+      function updateColors(inverse) {
+        if (inverse) {
+          document.body.style.backgroundColor = "#000";
+          document.body.style.color = "#fff";
+        } else {
+          document.body.style.backgroundColor = "#f0f0f0";
+          document.body.style.color = "#000";
+        }
+      }
+
+      function changeCharacterColor() {
+        const chars = document.querySelectorAll(".char");
+        const randomColor = getRandomColor();
+        chars.forEach((char) => {
+          char.style.color = randomColor;
+        });
+      }
+
+      function getRandomColor() {
+        const letters = "0123456789ABCDEF";
+        let color = "#";
+        for (let i = 0; i < 6; i++) {
+          color += letters[Math.floor(Math.random() * 16)];
+        }
+        return color;
+      }
+
+      function updateSpacing(gapPreference) {
+        const spacing = (parseInt(gapPreference) / 100) * 50; // Max spacing of 50px
+        const lineHeight = 1 + spacing / 100; // Line height proportional to spacing
+
+        document.querySelectorAll(".char").forEach((charElement) => {
+          charElement.style.margin = `${spacing / 2}px ${spacing / 2}px`; // Equal vertical and horizontal margins
+        });
+
+        document.getElementById("output").style.lineHeight = lineHeight;
+      }
+
+      function updateScale() {
+        const scale = document.getElementById("scale").value;
+        document.getElementById("output").style.fontSize = `${scale}px`;
+      }
+
+      function surpriseMe() {
+        // Randomize number of rows and columns
+        document.getElementById("rows").value = Math.floor(Math.random() * 10) + 1;
+        document.getElementById("columns").value = Math.floor(Math.random() * 10) + 1;
+
+        // Randomly toggle Bits, Angles, and Inverse Colors
+        document.getElementById("bits").checked = Math.random() < 0.5;
+        document.getElementById("angles").checked = Math.random() < 0.5;
+        document.getElementById("inverseColors").checked = Math.random() < 0.5;
+
+        // Ensure at least one checkbox is checked
+        if (!document.getElementById("bits").checked && !document.getElementById("angles").checked) {
+          // Randomly recheck one of them if both are unchecked
+          if (Math.random() < 0.5) {
+            document.getElementById("bits").checked = true;
+          } else {
+            document.getElementById("angles").checked = true;
+          }
+        }
+
+        // Randomize gap preference
+        document.getElementById("gapPreference").value = Math.floor(Math.random() * 101);
+
+        // Randomize scale
+        document.getElementById("scale").value = Math.floor(Math.random() * 251) + 50;
+
+        // Generate the characters with these random settings
+        generateCharacters();
+
+        // Randomly change character color
+        changeCharacterColor();
+      }
+
+      // Initial generation
+      generateCharacters();
+
+      // Add event listener for inverse color change
+      document.getElementById("inverseColors").addEventListener("change", function () {
+        updateColors(this.checked);
+      });
+
+      // Add event listener for spacing change
+      document.getElementById("gapPreference").addEventListener("input", function () {
+        updateSpacing(this.value);
+      });
+
+      // Add event listener for scale change
+      document.getElementById("scale").addEventListener("input", function () {
+        updateScale();
+      });
+    </script>
+  </body>
+</html>
